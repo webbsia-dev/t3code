@@ -4237,14 +4237,14 @@ const ChatHeader = memo(function ChatHeader({
                 aria-label="Toggle browser preview"
                 variant="outline"
                 size="xs"
-                disabled={!activeProjectName}
+                disabled={!activeProjectName && !browserOpen}
               >
                 <GlobeIcon className="size-3" />
               </Toggle>
             }
           />
           <TooltipPopup side="bottom">
-            {!activeProjectName
+            {!activeProjectName && !browserOpen
               ? "Browser preview requires a project"
               : browserToggleShortcutLabel
                 ? `Toggle browser preview (${browserToggleShortcutLabel})`

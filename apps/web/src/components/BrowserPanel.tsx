@@ -1,4 +1,3 @@
-/* eslint-disable react/iframe-missing-sandbox -- allow-same-origin is intentional: enables Vite HMR WebSocket for localhost dev preview */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { GlobeIcon, RefreshCwIcon } from "lucide-react";
 import { Button } from "./ui/button";
@@ -27,11 +26,10 @@ export function saveBrowserUrl(projectId: string | undefined, url: string): void
 }
 
 interface BrowserPanelProps {
-  mode?: "sidebar" | "sheet";
   projectId?: string | undefined;
 }
 
-export default function BrowserPanel({ mode: _mode = "sidebar", projectId }: BrowserPanelProps) {
+export default function BrowserPanel({ projectId }: BrowserPanelProps) {
   const [inputUrl, setInputUrl] = useState(() => readBrowserUrl(projectId));
   const [loadedUrl, setLoadedUrl] = useState(() => readBrowserUrl(projectId));
   const [refreshKey, setRefreshKey] = useState(0);
@@ -46,37 +44,6 @@ export default function BrowserPanel({ mode: _mode = "sidebar", projectId }: Bro
     setRefreshKey((k) => k + 1);
   }, [projectId]);
 
-  // Re-check localStorage shortly after mount — handles the race where auto-detection
-  // saved a URL before this component mounted (lazy-loaded via Suspense).
-  const loadedUrlRef = useRef(loadedUrl);
-  loadedUrlRef.current = loadedUrl;
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (loadedUrlRef.current.length > 0) return;
-      const url = readBrowserUrl(projectId);
-      if (url.length === 0) return;
-      setInputUrl(url);
-      setLoadedUrl(url);
-      setRefreshKey((k) => k + 1);
-    }, 100);
-    return () => clearTimeout(timer);
-  }, [projectId]);
-
-  // Listen for URL updates from dev server auto-detection (same-tab custom event)
-  useEffect(() => {
-    const handler = (e: Event) => {
-      const detail = (e as CustomEvent<{ projectId: string | undefined }>).detail;
-      if (detail.projectId !== projectId) return;
-      const url = readBrowserUrl(projectId);
-      if (url === loadedUrl) return;
-      setInputUrl(url);
-      setLoadedUrl(url);
-      setRefreshKey((k) => k + 1);
-    };
-    window.addEventListener("t3code:browser-url-updated", handler);
-    return () => window.removeEventListener("t3code:browser-url-updated", handler);
-  }, [projectId, loadedUrl]);
-
   // Health-check: detect when the dev server goes down and when it comes back.
   // Uses no-cors fetch to localhost — a network error means the server is unreachable.
   // Polls every 10s while reachable (crash detection) and every 2s while down
@@ -89,15 +56,17 @@ export default function BrowserPanel({ mode: _mode = "sidebar", projectId }: Bro
 
     const checkHealth = async () => {
       let isReachable = false;
+      let timeoutId: ReturnType<typeof setTimeout> | null = null;
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 2000);
+        timeoutId = setTimeout(() => controller.abort(), 2000);
         await fetch(loadedUrl, { method: "HEAD", mode: "no-cors", cache: "no-store", signal: controller.signal });
-        clearTimeout(timeoutId);
         isReachable = true;
         if (!cancelled) setServerReachable(true);
       } catch {
         if (!cancelled) setServerReachable(false);
+      } finally {
+        if (timeoutId !== null) clearTimeout(timeoutId);
       }
       if (!cancelled) {
         timer = setTimeout(checkHealth, isReachable ? 10_000 : 2_000);
@@ -187,6 +156,7 @@ export default function BrowserPanel({ mode: _mode = "sidebar", projectId }: Bro
       {/* Content */}
       <div className="min-h-0 flex-1 bg-[#1e1e1e]">
         {hasUrl && serverReachable ? (
+          // eslint-disable-next-line react/iframe-missing-sandbox -- allow-same-origin enables Vite HMR WebSocket for localhost dev preview
           <iframe
             key={refreshKey}
             src={loadedUrl}
