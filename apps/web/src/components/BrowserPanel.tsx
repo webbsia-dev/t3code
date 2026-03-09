@@ -9,9 +9,19 @@ function storageKeyForProject(projectId: string | undefined): string {
   return projectId ? `${BROWSER_URL_STORAGE_PREFIX}:${projectId}` : BROWSER_URL_STORAGE_PREFIX;
 }
 
+function isLocalhostUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1";
+  } catch {
+    return false;
+  }
+}
+
 export function readBrowserUrl(projectId: string | undefined): string {
   try {
-    return localStorage.getItem(storageKeyForProject(projectId)) ?? "";
+    const url = localStorage.getItem(storageKeyForProject(projectId)) ?? "";
+    return url.length > 0 && isLocalhostUrl(url) ? url : "";
   } catch {
     return "";
   }
@@ -95,13 +105,7 @@ export default function BrowserPanel({ projectId }: BrowserPanelProps) {
     (url: string) => {
       const trimmed = url.trim();
       const normalized = trimmed.startsWith("http") ? trimmed : `http://${trimmed}`;
-      try {
-        const parsed = new URL(normalized);
-        if (parsed.hostname !== "localhost" && parsed.hostname !== "127.0.0.1") {
-          setInputUrl(loadedUrl);
-          return;
-        }
-      } catch {
+      if (!isLocalhostUrl(normalized)) {
         setInputUrl(loadedUrl);
         return;
       }

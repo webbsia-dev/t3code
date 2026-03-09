@@ -2297,9 +2297,10 @@ export default function ChatView({ threadId }: ChatViewProps) {
       }
 
       if (command === "browser.toggle") {
+        if (!activeProject) return;
         event.preventDefault();
         event.stopPropagation();
-        if (activeProject) onToggleBrowser();
+        onToggleBrowser();
         return;
       }
 
