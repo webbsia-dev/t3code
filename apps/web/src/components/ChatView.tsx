@@ -145,6 +145,7 @@ import {
   XIcon,
   CopyIcon,
   CheckIcon,
+  TerminalSquareIcon,
   ZapIcon,
 } from "lucide-react";
 import { Button } from "./ui/button";
@@ -1310,6 +1311,10 @@ export default function ChatView({ threadId }: ChatViewProps) {
     () => shortcutLabelForCommand(keybindings, "diff.toggle"),
     [keybindings],
   );
+  const terminalToggleShortcutLabel = useMemo(
+    () => shortcutLabelForCommand(keybindings, "terminal.toggle"),
+    [keybindings],
+  );
   const onToggleDiff = useCallback(() => {
     void navigate({
       to: "/$threadId",
@@ -1371,9 +1376,9 @@ export default function ChatView({ threadId }: ChatViewProps) {
     [activeThreadId, storeSetTerminalHeight],
   );
   const toggleTerminalVisibility = useCallback(() => {
-    if (!activeThreadId) return;
+    if (!activeThreadId || !activeProject) return;
     setTerminalOpen(!terminalState.terminalOpen);
-  }, [activeThreadId, setTerminalOpen, terminalState.terminalOpen]);
+  }, [activeThreadId, activeProject, setTerminalOpen, terminalState.terminalOpen]);
   const splitTerminal = useCallback(() => {
     if (!activeThreadId || hasReachedTerminalLimit) return;
     const terminalId = `terminal-${crypto.randomUUID()}`;
@@ -3463,6 +3468,9 @@ export default function ChatView({ threadId }: ChatViewProps) {
           diffToggleShortcutLabel={diffPanelShortcutLabel}
           gitCwd={gitCwd}
           diffOpen={diffOpen}
+          terminalOpen={terminalState.terminalOpen}
+          terminalToggleShortcutLabel={terminalToggleShortcutLabel}
+          onToggleTerminal={toggleTerminalVisibility}
           onRunProjectScript={(script) => {
             void runProjectScript(script);
           }}
@@ -4005,6 +4013,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
             key={activeThread.id}
             threadId={activeThread.id}
             cwd={gitCwd ?? activeProject.cwd}
+            label="Terminal"
             runtimeEnv={threadTerminalRuntimeEnv}
             height={terminalState.terminalHeight}
             terminalIds={terminalState.terminalIds}
@@ -4108,6 +4117,9 @@ interface ChatHeaderProps {
   diffToggleShortcutLabel: string | null;
   gitCwd: string | null;
   diffOpen: boolean;
+  terminalOpen: boolean;
+  terminalToggleShortcutLabel: string | null;
+  onToggleTerminal: () => void;
   onRunProjectScript: (script: ProjectScript) => void;
   onAddProjectScript: (input: NewProjectScriptInput) => Promise<void>;
   onUpdateProjectScript: (scriptId: string, input: NewProjectScriptInput) => Promise<void>;
@@ -4128,6 +4140,9 @@ const ChatHeader = memo(function ChatHeader({
   diffToggleShortcutLabel,
   gitCwd,
   diffOpen,
+  terminalOpen,
+  terminalToggleShortcutLabel,
+  onToggleTerminal,
   onRunProjectScript,
   onAddProjectScript,
   onUpdateProjectScript,
@@ -4175,6 +4190,30 @@ const ChatHeader = memo(function ChatHeader({
           />
         )}
         {activeProjectName && <GitActionsControl gitCwd={gitCwd} activeThreadId={activeThreadId} />}
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Toggle
+                className="shrink-0"
+                pressed={terminalOpen}
+                onPressedChange={onToggleTerminal}
+                aria-label="Toggle terminal"
+                variant="outline"
+                size="xs"
+                disabled={!activeProjectName}
+              >
+                <TerminalSquareIcon className="size-3" />
+              </Toggle>
+            }
+          />
+          <TooltipPopup side="bottom">
+            {!activeProjectName
+              ? "Terminal requires a project"
+              : terminalToggleShortcutLabel
+                ? `Toggle terminal (${terminalToggleShortcutLabel})`
+                : "Toggle terminal"}
+          </TooltipPopup>
+        </Tooltip>
         <Tooltip>
           <TooltipTrigger
             render={

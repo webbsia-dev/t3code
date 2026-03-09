@@ -27,7 +27,7 @@ import {
 } from "../types";
 import { readNativeApi } from "~/nativeApi";
 
-const MIN_DRAWER_HEIGHT = 180;
+const MIN_DRAWER_HEIGHT = 100;
 const MAX_DRAWER_HEIGHT_RATIO = 0.75;
 
 function maxDrawerHeight(): number {
@@ -436,6 +436,8 @@ function TerminalViewport({
 interface ThreadTerminalDrawerProps {
   threadId: ThreadId;
   cwd: string;
+  label?: string | undefined;
+  visible?: boolean;
   runtimeEnv?: Record<string, string>;
   height: number;
   terminalIds: string[];
@@ -482,9 +484,17 @@ function TerminalActionButton({ label, className, onClick, children }: TerminalA
   );
 }
 
+function abbreviatePath(path: string): string {
+  return path
+    .replace(/^\/(?:Users|home)\/[^/]+/, "~")
+    .replace(/^[A-Z]:\\Users\\[^\\]+/, "~");
+}
+
 export default function ThreadTerminalDrawer({
   threadId,
   cwd,
+  label,
+  visible = true,
   runtimeEnv,
   height,
   terminalIds,
@@ -702,6 +712,7 @@ export default function ThreadTerminalDrawer({
   );
 
   useEffect(() => {
+    let rafId: number | null = null;
     const onWindowResize = () => {
       const clampedHeight = clampDrawerHeight(drawerHeightRef.current);
       const changed = clampedHeight !== drawerHeightRef.current;
@@ -712,11 +723,20 @@ export default function ThreadTerminalDrawer({
       if (!resizeStateRef.current) {
         syncHeight(clampedHeight);
       }
-      setResizeEpoch((value) => value + 1);
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+      }
+      rafId = requestAnimationFrame(() => {
+        rafId = null;
+        setResizeEpoch((value) => value + 1);
+      });
     };
     window.addEventListener("resize", onWindowResize);
     return () => {
       window.removeEventListener("resize", onWindowResize);
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+      }
     };
   }, [syncHeight]);
 
@@ -726,10 +746,18 @@ export default function ThreadTerminalDrawer({
     };
   }, [syncHeight]);
 
+  useEffect(() => {
+    if (visible) {
+      setResizeEpoch((value) => value + 1);
+    }
+  }, [visible]);
+
   return (
     <aside
-      className="thread-terminal-drawer relative flex min-w-0 shrink-0 flex-col overflow-hidden border-t border-border/80 bg-background"
-      style={{ height: `${drawerHeight}px` }}
+      className={`thread-terminal-drawer relative flex min-w-0 shrink-0 flex-col overflow-hidden ${visible ? "border-t border-border/80" : "pointer-events-none"} bg-background`}
+      style={{ height: visible ? `${drawerHeight}px` : 0 }}
+      hidden={!visible}
+      aria-hidden={!visible}
     >
       <div
         className="absolute inset-x-0 top-0 z-20 h-1.5 cursor-row-resize"
@@ -738,6 +766,14 @@ export default function ThreadTerminalDrawer({
         onPointerUp={handleResizePointerEnd}
         onPointerCancel={handleResizePointerEnd}
       />
+
+      {label && (
+        <div className="flex h-6 shrink-0 items-center px-3">
+          <span className="select-none text-[10px] tracking-wider text-muted-foreground">
+            {label} <span className="opacity-60">· {abbreviatePath(cwd)}</span>
+          </span>
+        </div>
+      )}
 
       {!hasTerminalSidebar && (
         <div className="pointer-events-none absolute right-2 top-2 z-20">
@@ -799,7 +835,7 @@ export default function ThreadTerminalDrawer({
                       }
                     }}
                   >
-                    <div className="h-full p-1">
+                    <div className="h-full px-3 pt-2 pb-1">
                       <TerminalViewport
                         threadId={threadId}
                         terminalId={terminalId}
@@ -816,7 +852,7 @@ export default function ThreadTerminalDrawer({
                 ))}
               </div>
             ) : (
-              <div className="h-full p-1">
+              <div className="h-full px-3 pt-2 pb-1">
                 <TerminalViewport
                   key={resolvedActiveTerminalId}
                   threadId={threadId}
