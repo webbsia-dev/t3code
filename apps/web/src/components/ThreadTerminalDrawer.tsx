@@ -485,7 +485,9 @@ function TerminalActionButton({ label, className, onClick, children }: TerminalA
 }
 
 function abbreviatePath(path: string): string {
-  return path.replace(/^\/(?:Users|home)\/[^/]+/, "~");
+  return path
+    .replace(/^\/(?:Users|home)\/[^/]+/, "~")
+    .replace(/^[A-Z]:\\Users\\[^\\]+/, "~");
 }
 
 export default function ThreadTerminalDrawer({
@@ -744,10 +746,18 @@ export default function ThreadTerminalDrawer({
     };
   }, [syncHeight]);
 
+  useEffect(() => {
+    if (visible) {
+      setResizeEpoch((value) => value + 1);
+    }
+  }, [visible]);
+
   return (
     <aside
-      className={`thread-terminal-drawer relative flex min-w-0 shrink-0 flex-col overflow-hidden ${visible ? "border-t border-border/80" : ""} bg-background`}
+      className={`thread-terminal-drawer relative flex min-w-0 shrink-0 flex-col overflow-hidden ${visible ? "border-t border-border/80" : "pointer-events-none"} bg-background`}
       style={{ height: visible ? `${drawerHeight}px` : 0 }}
+      hidden={!visible}
+      aria-hidden={!visible}
     >
       <div
         className="absolute inset-x-0 top-0 z-20 h-1.5 cursor-row-resize"
